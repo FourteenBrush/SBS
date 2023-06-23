@@ -8,9 +8,10 @@ import sun.misc.Unsafe;
 import java.lang.reflect.Field;
 
 public class MemoryAccess {
+    private static final boolean ALLOW_UNINITIALIZED_READS = true;
     private static final Unsafe UNSAFE;
     private static final long BASE_ADDRESS;
-    private static final LongSet writtenToMemory = new LongArraySet(20);
+    private static final LongSet writtenToMemory = new LongArraySet(50);
 
     static {
         try {
@@ -18,7 +19,6 @@ public class MemoryAccess {
             unsafeField.setAccessible(true);
             UNSAFE = (Unsafe) unsafeField.get(null);
             BASE_ADDRESS = UNSAFE.allocateMemory(64);
-
         } catch (NoSuchFieldException | IllegalAccessException e) {
             throw new ExceptionInInitializerError(e);
         }
@@ -29,8 +29,8 @@ public class MemoryAccess {
     }
 
     public static int getInt(int addressOffset) {
-        if (!writtenToMemory.contains(addressOffset)) {
-            throw SBS.error("cannot access uninitialized memory at address offset %s", addressOffset);
+        if (!ALLOW_UNINITIALIZED_READS && !writtenToMemory.contains(addressOffset)) {
+            throw SBS.panic("cannot access uninitialized memory at address offset %s", addressOffset);
         }
         return UNSAFE.getInt(BASE_ADDRESS + addressOffset);
     }
@@ -65,8 +65,9 @@ public class MemoryAccess {
         UNSAFE.freeMemory(BASE_ADDRESS);
     }
 
-    protected static void printState() {
+    public static void printState() {
+        System.out.printf("allow uninitialized reads: %b%n", ALLOW_UNINITIALIZED_READS);
+        System.out.printf("base address: 0x%x%n", BASE_ADDRESS);
         System.out.printf("written memory offsets: %s%n", writtenToMemory);
-        System.out.printf("base address: %s%n", BASE_ADDRESS);
     }
 }

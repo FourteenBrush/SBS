@@ -1,15 +1,22 @@
 package me.fourteendoggo.sbs;
 
+import me.fourteendoggo.sbs.instruction.Instruction;
+import me.fourteendoggo.sbs.instruction.OpCode;
+
+import java.util.Arrays;
 import java.util.List;
 
 public class SBS {
-    private int ip;
-    private int current;
+    private int pc;
     private final List<Instruction> instructions;
 
     public SBS(String code) {
+        this(Arrays.asList(code.split("\n")));
+    }
+
+    public SBS(List<String> codeLines) {
         Parser parser = new Parser();
-        instructions = parser.parseInstructions(code);
+        instructions = parser.parseInstructions(codeLines);
     }
 
     @SuppressWarnings("ConstantConditions")
@@ -17,38 +24,34 @@ public class SBS {
         if (instructions.isEmpty()) return;
 
         Instruction instruction = null;
-        while (ip < instructions.size()) {
-            instruction = instructions.get(ip);
+        while (pc < instructions.size()) {
+            instruction = instructions.get(pc);
             System.out.println(instruction);
 
-            int oldIp = ip;
+            int oldIp = pc;
             instruction.execute(this);
-            if (ip == oldIp) { // no jump
-                ip++;
+            if (pc == oldIp) { // no jump
+                pc++;
             }
-            if (instruction.opCode() == OpCode.HLT) break;
+            if (instruction.opCode() == OpCode.HLT) return;
         }
         if (instruction.opCode() != OpCode.HLT) {
-            throw error("last instruction was not a HLT, executed it manually and exited");
+            throw panic("last instruction was not a HLT, executed it manually and exited");
         }
     }
 
-    public int getCurrent() {
-        return current;
-    }
-
-    public void setCurrent(int current) {
-        this.current = current;
-    }
-
-    public void jumpTo(int ip) {
+    public void setIp(int ip) {
         if (ip < 0 || ip >= instructions.size()) {
             throw new IllegalArgumentException("ip must be between 0 and %s, got %s".formatted(instructions.size(), ip));
         }
-        this.ip = ip;
+        pc = ip;
     }
 
-    protected static RuntimeException error(String message, Object... placeholders) {
+    public void halt(int status) {
+        System.exit(status);
+    }
+
+    protected static RuntimeException panic(String message, Object... placeholders) {
         MemoryAccess.free();
         return new IllegalStateException(message.formatted(placeholders));
     }

@@ -1,5 +1,6 @@
-package me.fourteendoggo.sbs;
+package me.fourteendoggo.sbs.instruction;
 
+import me.fourteendoggo.sbs.SBS;
 import me.fourteendoggo.sbs.argument.Constant;
 import me.fourteendoggo.sbs.argument.Operand;
 import me.fourteendoggo.sbs.argument.address.Address;
@@ -20,12 +21,13 @@ public record Instruction(OpCode opCode, Operand... operands) {
         return get(idx, Address.class);
     }
 
+    @SuppressWarnings("unchecked") // stupid analysis tool
     private <T extends Operand> T get(int idx, Class<T> expectedType) {
         Operand operand = operands[idx];
         if (!expectedType.isInstance(operand)) {
-            throw new IllegalArgumentException("operand at index %s is not of %s, got %s".formatted(idx, expectedType, operand.getClass()));
+            throw new IllegalArgumentException("operand at index %s is not of type %s, got %s".formatted(idx, expectedType, operand.getClass()));
         }
-        return expectedType.cast(operand);
+        return (T) operand;
     }
 
     @Override

@@ -20,7 +20,7 @@ public abstract class Address implements Operand {
 
     @Override
     public int getValue() {
-        return MemoryAccess.getInt(address());
+        return MemoryAccess.getInt(this);
     }
 
     public int address() {

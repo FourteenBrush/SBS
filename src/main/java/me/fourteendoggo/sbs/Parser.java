@@ -6,7 +6,8 @@ import me.fourteendoggo.sbs.argument.Constant;
 import me.fourteendoggo.sbs.argument.Operand;
 import me.fourteendoggo.sbs.argument.address.Address;
 import me.fourteendoggo.sbs.argument.address.DirectAddress;
-import me.fourteendoggo.sbs.argument.address.Register;
+import me.fourteendoggo.sbs.instruction.Instruction;
+import me.fourteendoggo.sbs.instruction.OpCode;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -18,23 +19,21 @@ public class Parser {
     private final Map<String, Operand> directives = new HashMap<>();
     private final Object2IntMap<String> markers = new Object2IntArrayMap<>(5);
     private final List<UnresolvedMarker> unresolvedMarkers = new ArrayList<>();
-    private final Map<String, Register> registers = Map.of(
-            "ax", new Register(0),
-            "bx", new Register(Integer.BYTES),
-            "cx", new Register(2 * Integer.BYTES)
-    );
 
     public Parser() {
         markers.defaultReturnValue(UNDEFINED_MARKER_IP);
+        RegisterHolder.createRegister("ax");
+        RegisterHolder.createRegister("bx");
+        RegisterHolder.createRegister("cx");
+        RegisterHolder.createRegister("dx");
     }
 
-    public List<Instruction> parseInstructions(String code) {
-        List<Instruction> instructions = new ArrayList<>(50);
-        String[] lines = code.split("\n");
+    public List<Instruction> parseInstructions(List<String> codeLines) {
+        List<Instruction> instructions = new ArrayList<>(codeLines.size());
 
         int instructionPtr = 0;
-        for (int lineNum = 0; lineNum < lines.length; lineNum++) {
-            String line = lines[lineNum].trim();
+        for (int lineNum = 0; lineNum < codeLines.size(); lineNum++) {
+            String line = codeLines.get(lineNum).trim();
             if (line.isEmpty()) continue;
 
             // remove comments first because they might appear in directives too
@@ -45,7 +44,7 @@ public class Parser {
             }
 
             // dont increment instructionPtr for directives
-            if (line.startsWith("@def")) {
+            if (line.startsWith("@define")) {
                 parseDirective(line);
                 continue;
             }
@@ -93,13 +92,13 @@ public class Parser {
     }
 
     /*
-    A directive is a line such as "@def foo 5" which defines a 'variable' named "foo" with value 5.
+    A directive is a line such as "@define foo 5" which defines an operand named "foo" with value 5.
     That constant can then be used in the program as an operand instead of specifying a magic number.
     This is converted to the actual value when the program is parsed.
      */
     private void parseDirective(String line) {
         int emptyCharIdx = line.lastIndexOf(' ');
-        String directiveName = line.substring("@def ".length(), emptyCharIdx);
+        String directiveName = line.substring("@define ".length(), emptyCharIdx);
         String operandStr = line.substring(emptyCharIdx + 1);
         Operand replacement = parseOperand(operandStr);
         directives.put(directiveName, replacement);
@@ -125,18 +124,17 @@ public class Parser {
                 "line %s: expected %s operands for opcode %s but got %s",
                 lineNum, opCode.getRequiredArgs(), opCode, operandCount
         );
-
         Operand[] operands = new Operand[operandCount];
+
         for (int i = 0; i < operands.length; i++) {
             String operandStr = splitInstruction[opcodeIdx + i + 1];
             Operand operand = parseOperand(operandStr);
-            if (operand != null) {
-                operands[i] = operand;
+            if (operand == null) {
+                // we received null, meaning the operand was a marker which could not be read this early
+                unresolvedMarkers.add(new UnresolvedMarker(operandStr, operands, i));
                 continue;
             }
-            // we received null, meaning the operand was a marker which could not be read this early
-            UnresolvedMarker unresolvedMarker = new UnresolvedMarker(operandStr, operands, i);
-            unresolvedMarkers.add(unresolvedMarker);
+            operands[i] = operand;
         }
         return new Instruction(opCode, operands);
     }
@@ -152,7 +150,7 @@ public class Parser {
             case '$' -> { // example $a - register value
                 String registerName = str.substring(1);
                 Assert.isTrue(str.length() > 1, "expected a register name behind a $");
-                yield getRegisterOrThrow(registerName);
+                yield RegisterHolder.getOrThrow(registerName);
             }
             case '[' -> { // example [$ax] or [100] or [$ax + 100]
                 Assert.isTrue(str.length() > 2, "cannot parse an empty []");
@@ -178,12 +176,6 @@ public class Parser {
         return null; // assume this is a marker which hasn't been read yet - will be replaced in the second pass
     }
 
-    private Register getRegisterOrThrow(String name) {
-        Register register = registers.get(name);
-        Assert.notNull(register, "unknown register %s", name);
-        return register;
-    }
-
     /*
     between square brackets, there may be a combination of operands, examples:
     opcode [$ax + 1000] (register + constant)
@@ -191,16 +183,13 @@ public class Parser {
     opcode [$ax + directive_a] (register + directive pointing to constant)
      */
     private Operand parseWithinSquareBrackets(String str) {
-        String[] operands = str.substring(1, str.length() - 1).split("\\+");
-
-        if (operands.length > 1) {
-            System.out.println();
-        }
+        String[] operands = str.substring(1, str.length() - 1).split("\\+"); // takes String#format fast path
 
         int finalOffset = 0;
         for (String operandStr : operands) {
             Operand operand = parseOperand(operandStr.trim());
             switch (operand) {
+                case null -> throw new IllegalArgumentException("cannot parse operand " + operandStr);
                 case Constant constant -> finalOffset += constant.getValue();
                 case Address address -> finalOffset += address.address();
                 default -> throw new AssertionError("default switch case should not be triggered");

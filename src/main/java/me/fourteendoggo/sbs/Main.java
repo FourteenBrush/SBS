@@ -1,7 +1,26 @@
 package me.fourteendoggo.sbs;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+
 public class Main {
+    @SuppressWarnings("unused")
     public static void main(String[] args) {
+
+        // IntStream.range(1, 4).forEach(System.out::println);
+        String loopCode = """
+                    mov $ax 1 ; i
+                    mov $bx 4 ; max
+               lp:  mov $cx $bx
+                    sub $cx $ax ; max - i
+                    jnz0 $cx hlt
+                    out $ax
+                    inc $ax ; i++
+                    jmp lp
+               hlt: hlt
+                """;
 
         // for (int i = 0; i < 3; i++) { stdout(i); }
         String code = """
@@ -22,14 +41,6 @@ public class Main {
                     HLT ; break and exit
                 """;
 
-        /*
-        int[] arr = {100, 300};
-        for (int x : arr) { stdout(x) }
-         */
-        int[] arr = {100, 300};
-        MemoryAccess.putInt(0, arr.length);
-        MemoryAccess.putArray(4, arr);
-
         String printArrayElements = """
                     @def arr_l 0
                     @def arr_st 4
@@ -45,7 +56,6 @@ public class Main {
                     jmp l ; next iter
                 h:  hlt
                 """;
-
         /*
             sta 12 0
         l:  lda 0
@@ -59,9 +69,9 @@ public class Main {
          */
 
         String testCode = """
-                    @def arr_l 2
-                    @def arr_st_o [0]
-                    @def i_o [4]
+                    @define arr_l $ax
+                    @define arr_st_o [0]
+                    @define i_o [4]
                     
                     sta arr_st_o 100
                     sta [arr_st_o + 4] 300
@@ -76,19 +86,37 @@ public class Main {
                 h:  hlt
                 """;
 
-        String test2 = """
-                    @def arr_st_off 4
-                    @def i_off 0
-                    lda [arr_st_off + [i_off]]
-                    out
-                    hlt
+        String print100200 = """
+                    mov [0] 100
+                    mov [4] 200
+                    mov $ax 2 ; len
+                    mov $bx 0 ; i
+                
+              lp:   mov $cx $bx ; i
+                    sub $cx $ax ; i - len
+                    jpz0 $cx hlt
+                    ; load element
+                    ; do not overwrite ax and bx in loop body
+                    mov $dx $bx
+                    mul $dx 4 ; elem width
+                    ps
+                    out [$dx]
                     
-                    [arr_st_off] << 100
-                    [arr_st_off + 4] << 300
-                    [i_o] << 0
-                    $ax << i_o
+                    inc $bx ; i++
+                    jmp lp
+              hlt:  hlt
                 """;
 
-        new SBS(testCode).exec();
+        if (args.length != 2 || !args[0].equals("--input")) {
+            System.err.println("Usage: sbs --input <file>");
+            return;
+        }
+
+        try {
+            List<String> lines = Files.readAllLines(Path.of(args[1]));
+            new SBS(lines).exec();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }
