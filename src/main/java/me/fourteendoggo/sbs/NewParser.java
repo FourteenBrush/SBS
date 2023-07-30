@@ -95,12 +95,12 @@ public class NewParser {
             opcodeIdx = 1;
         }
         Assert.isFalse(opcodeIdx >= splitInstruction.length, "line %s: expected an opcode after marker", lineNum);
-        OpCode opCode = OpCode.fromString(splitInstruction[opcodeIdx]);
+        OpCode opcode = OpCode.fromString(splitInstruction[opcodeIdx]);
         int operandCount = splitInstruction.length - opcodeIdx - 1;
         Assert.isFalse(
-                operandCount != opCode.getRequiredArgs(),
+                operandCount != opcode.getRequiredArgs(),
                 "line %s: expected %s operands for opcode %s but got %s",
-                lineNum, opCode.getRequiredArgs(), opCode, operandCount
+                lineNum, opcode.getRequiredArgs(), opcode, operandCount
         );
         Operand[] operands = new Operand[operandCount];
         // parse operands
@@ -114,7 +114,7 @@ public class NewParser {
             }
             operands[i] = operand;
         }
-        return new Instruction(opCode, operands);
+        return new Instruction(opcode, operands);
     }
 
     private Operand parseOperand(String str) {

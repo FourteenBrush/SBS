@@ -10,7 +10,7 @@ import me.fourteendoggo.sbs.argument.address.Address;
 import java.util.function.BiConsumer;
 
 @SuppressWarnings("unused")
-public enum OpCode {
+public enum Opcode {
     NOP(0, (sbs, instruction) -> {}),
     /** mov <destination: address> <source: operand> */
     MOV(2, (sbs, instruction) -> {
@@ -19,13 +19,14 @@ public enum OpCode {
        MemoryAccess.putInt(destination, source.getValue());
     }),
     /** lde <array start offset: operand> <index: operand> */
+    @Deprecated
     LDE(2, (sbs, instruction) -> {
         Operand arrayStartOffset = instruction.operands()[0];
         Operand index = instruction.operands()[1];
         int arrayElement = MemoryAccess.getArrayElement(arrayStartOffset.getValue(), index.getValue());
-        MemoryAccess.putInt(RegisterHolder.getOrThrow("ax"), arrayElement);
+        MemoryAccess.putInt(RegisterHolder.getOrThrow("ax"), arrayElement); // what?
     }),
-    /** add <destination offset: operand> <value: operand> */
+    /** add <destination: operand> <value: operand> */
     ADD(1, (sbs, instruction) -> {
         Address destinationOffset = instruction.getAddress(0);
         Operand value = instruction.operands()[1];
@@ -49,10 +50,12 @@ public enum OpCode {
         Operand divisor = instruction.operands()[1];
         MemoryAccess.putInt(destination, destination.getValue() / divisor.getValue());
     }),
-    INC(1, ((sbs, instruction) -> {
+    /** inc <destination: address> [value: operand] */
+    INC(2, (sbs, instruction) -> { // TODO 1-2 operands
         Address destinationOffset = instruction.getAddress(0);
-        MemoryAccess.putInt(destinationOffset, destinationOffset.getValue() + 1);
-    })),
+        int value = instruction.operands().length > 1 ? instruction.operands()[1].getValue() : 1;
+        MemoryAccess.putInt(destinationOffset, destinationOffset.getValue() + value);
+    }),
     IN(1, (sbs, instruction) -> {
         Constant mode = instruction.getConstant(0);
         System.out.println("Input from mode " + mode.getValue());
@@ -66,35 +69,46 @@ public enum OpCode {
     /** jmp <destination: address> */
     JMP(1, (sbs, instruction) -> {
         Constant destinationIp = instruction.getConstant(0);
-        sbs.setIp(destinationIp.getValue());
+        sbs.jumpTo(destinationIp.getValue());
     }),
     /** jp <value: operand> <destination: address> */
     JP(2, (sbs, instruction) -> {
         Operand toCheck = instruction.operands()[0];
         if (toCheck.getValue() > 0) {
             Constant destinationIp = instruction.getConstant(1);
-            sbs.setIp(destinationIp.getValue());
+            sbs.jumpTo(destinationIp.getValue());
         }
     }),
+    /** jpz <value: operand> <destination: address> */
     JPZ(2, ((sbs, instruction) -> {
         Operand toCheck = instruction.operands()[0];
         if (toCheck.getValue() >= 0) {
             Constant destinationIp = instruction.getConstant(1);
-            sbs.setIp(destinationIp.getValue());
+            sbs.jumpTo(destinationIp.getValue());
         }
     })),
+    /** jne <value: operand> <destination: address> */
     JNE(2, (sbs, instruction) -> {
         Operand toCheck = instruction.operands()[0];
         if (toCheck.getValue() < 0) {
             Constant destinationIp = instruction.getConstant(1);
-            sbs.setIp(destinationIp.getValue());
+            sbs.jumpTo(destinationIp.getValue());
         }
     }),
+    /** jnz <value: operand> <destination: address> */
     JNZ(2, (sbs, instruction) -> {
         Operand toCheck = instruction.operands()[0];
         if (toCheck.getValue() <= 0) {
             Constant destinationIp = instruction.getConstant(1);
-            sbs.setIp(destinationIp.getValue());
+            sbs.jumpTo(destinationIp.getValue());
+        }
+    }),
+    /** jz <value: operand> <destination: address> */
+    JZ(2, (sbs, instruction) -> {
+        Operand toCheck = instruction.operands()[0];
+        if (toCheck.getValue() == 0) {
+            Constant destinationIp = instruction.getConstant(1);
+            sbs.jumpTo(destinationIp.getValue());
         }
     }),
     HLT((sbs, instruction) -> {
@@ -102,33 +116,46 @@ public enum OpCode {
         sbs.halt(0);
     }),
     PD(0, (sbs, instruction) -> {
-        System.out.printf("%s Diagnostic state %s%n", "=".repeat(6), "=".repeat(7));
+        System.out.printf("%s Diagnostics %s%n", "=".repeat(6), "=".repeat(7));
         MemoryAccess.printState();
         RegisterHolder.printDiagnostics();
         System.out.println("=".repeat(30));
     });
 
-    private final int requiredArgs;
+    private final int minArgs, maxArgs;
     private final BiConsumer<SBS, Instruction> function;
 
-    OpCode(BiConsumer<SBS, Instruction> function) {
+    Opcode(BiConsumer<SBS, Instruction> function) {
         this(0, function);
     }
 
-    OpCode(int requiredArgs, BiConsumer<SBS, Instruction> function) {
-        this.requiredArgs = requiredArgs;
+    Opcode(int requiredArgs, BiConsumer<SBS, Instruction> function) {
+        this(requiredArgs, requiredArgs, function);
+    }
+
+    Opcode(int minArgs, int maxArgs, BiConsumer<SBS, Instruction> function) {
+        this.minArgs = minArgs;
+        this.maxArgs = maxArgs;
         this.function = function;
     }
 
-    public int getRequiredArgs() {
-        return requiredArgs;
+    public int getMinArgs() {
+        return minArgs;
     }
 
-    public void exec(SBS sbs, Instruction instruction) {
+    public int getMaxArgs() {
+        return maxArgs;
+    }
+
+    public void execute(SBS sbs, Instruction instruction) {
         function.accept(sbs, instruction);
     }
 
-    public static OpCode fromString(String s) {
-        return valueOf(s.toUpperCase()); // TODO: let caller do this themselves
+    public static Opcode fromString(String s) {
+        try {
+            return valueOf(s.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("No such opcode " + s);
+        }
     }
 }

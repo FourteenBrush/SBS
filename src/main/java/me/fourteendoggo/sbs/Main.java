@@ -114,7 +114,7 @@ public class Main {
 
         try {
             List<String> lines = Files.readAllLines(Path.of(args[1]));
-            new SBS(lines).exec();
+            new SBS(lines).run();
         } catch (IOException e) {
             e.printStackTrace();
         }

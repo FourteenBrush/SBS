@@ -7,7 +7,7 @@ import me.fourteendoggo.sbs.argument.Operand;
 import me.fourteendoggo.sbs.argument.address.Address;
 import me.fourteendoggo.sbs.argument.address.DirectAddress;
 import me.fourteendoggo.sbs.instruction.Instruction;
-import me.fourteendoggo.sbs.instruction.OpCode;
+import me.fourteendoggo.sbs.instruction.Opcode;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 
 public class Parser {
+    private static final boolean DEBUG_MODE = Boolean.getBoolean("sbs.debug-mode");
     private static final int UNDEFINED_MARKER_IP = -999;
     private final Map<String, Operand> directives = new HashMap<>();
     private final Object2IntMap<String> markers = new Object2IntArrayMap<>(5);
@@ -52,6 +53,9 @@ public class Parser {
 
             Instruction instruction = parseInstruction(lineNum, instructionPtr++, splitInstruction);
             instructions.add(instruction);
+            if (DEBUG_MODE) {
+                System.out.println(instruction);
+            }
         }
         // second pass - resolve all markers we were unable to in the first pass
         // because we read them but their destination instruction ptr was not yet seen in the source code
@@ -62,7 +66,7 @@ public class Parser {
         return instructions;
     }
 
-    // to avoid using Pattern#split
+    // to avoid using Pattern#split (String#split) which is kinda slow
     private String[] splitLine(String line) {
         List<String> parts = new ArrayList<>();
         int start = 0;
@@ -103,7 +107,9 @@ public class Parser {
         Operand replacement = parseOperand(operandStr);
         directives.put(directiveName, replacement);
 
-        System.out.printf("parsed directive %s: %s%n", directiveName, replacement);
+        if (DEBUG_MODE) {
+            System.out.printf("parsed directive %s: %s%n", directiveName, replacement);
+        }
     }
 
     private Instruction parseInstruction(int lineNum, int instructionPtr, String[] splitInstruction) {
@@ -117,13 +123,15 @@ public class Parser {
         }
         Assert.isFalse(opcodeIdx >= splitInstruction.length, "line %s: expected an opcode after marker", lineNum);
 
-        OpCode opCode = OpCode.fromString(splitInstruction[opcodeIdx]);
+        Opcode opcode = Opcode.fromString(splitInstruction[opcodeIdx]);
         int operandCount = splitInstruction.length - opcodeIdx - 1;
-        Assert.isFalse(
-                operandCount != opCode.getRequiredArgs(),
-                "line %s: expected %s operands for opcode %s but got %s",
-                lineNum, opCode.getRequiredArgs(), opCode, operandCount
+
+        Assert.isTrue(
+            operandCount >= opcode.getMinArgs() && operandCount <= opcode.getMaxArgs(),
+            "line %s: opcode %s requires an operand count in range [%s..=%s], got %s",
+            lineNum, opcode, opcode.getMinArgs(), opcode.getMaxArgs(), operandCount
         );
+
         Operand[] operands = new Operand[operandCount];
 
         for (int i = 0; i < operands.length; i++) {
@@ -136,7 +144,7 @@ public class Parser {
             }
             operands[i] = operand;
         }
-        return new Instruction(opCode, operands);
+        return new Instruction(opcode, operands);
     }
 
     private Operand parseOperand(String str) {
@@ -177,10 +185,10 @@ public class Parser {
     }
 
     /*
-    between square brackets, there may be a combination of operands, examples:
+    between square brackets, there may be a combination of operands:
     opcode [$ax + 1000] (register + constant)
     opcode [$ax + $bx] (register + register)
-    opcode [$ax + directive_a] (register + directive pointing to constant)
+    opcode [$ax + [0]] (register + address)
      */
     private Operand parseWithinSquareBrackets(String str) {
         String[] operands = str.substring(1, str.length() - 1).split("\\+"); // takes String#format fast path
@@ -190,7 +198,7 @@ public class Parser {
             Operand operand = parseOperand(operandStr.trim());
             switch (operand) {
                 case null -> throw new IllegalArgumentException("cannot parse operand " + operandStr);
-                case Constant constant -> finalOffset += constant.getValue();
+                case Constant constant -> finalOffset += constant.getValue(); // TODO: * MemoryAccess.REGISTER_SIZE ?
                 case Address address -> finalOffset += address.address();
                 default -> throw new AssertionError("default switch case should not be triggered");
             }

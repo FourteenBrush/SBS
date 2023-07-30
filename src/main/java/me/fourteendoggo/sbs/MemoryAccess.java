@@ -8,18 +8,21 @@ import sun.misc.Unsafe;
 import java.lang.reflect.Field;
 
 public class MemoryAccess {
-    private static final boolean ALLOW_UNINITIALIZED_READS = true;
+    public static final int REGISTER_SIZE = Integer.BYTES;
+    private static final boolean ALLOW_UNINITIALIZED_READS;
     private static final Unsafe UNSAFE;
     private static final long BASE_ADDRESS;
     private static final LongSet writtenToMemory = new LongArraySet(50);
 
     static {
+        ALLOW_UNINITIALIZED_READS = Boolean.parseBoolean(System.getProperty("sbs.allow-uninitialized-reads", "true")); // works ig
         try {
             Field unsafeField = Unsafe.class.getDeclaredField("theUnsafe");
             unsafeField.setAccessible(true);
             UNSAFE = (Unsafe) unsafeField.get(null);
-            BASE_ADDRESS = UNSAFE.allocateMemory(64);
+            BASE_ADDRESS = UNSAFE.allocateMemory(256);
         } catch (NoSuchFieldException | IllegalAccessException e) {
+            System.err.println("Cannot use sun.misc.Unsafe for memory access");
             throw new ExceptionInInitializerError(e);
         }
     }
@@ -30,13 +33,13 @@ public class MemoryAccess {
 
     public static int getInt(int addressOffset) {
         if (!ALLOW_UNINITIALIZED_READS && !writtenToMemory.contains(addressOffset)) {
-            throw SBS.panic("cannot access uninitialized memory at address offset %s", addressOffset);
+            SBS.panic("cannot access uninitialized memory at address offset %s", addressOffset);
         }
         return UNSAFE.getInt(BASE_ADDRESS + addressOffset);
     }
 
     public static int getArrayElement(int arrayStartAddressOffset, int index) {
-        int offset = arrayStartAddressOffset + index * Integer.BYTES;
+        int offset = arrayStartAddressOffset + index * REGISTER_SIZE;
         return getInt(offset);
     }
 
@@ -50,7 +53,7 @@ public class MemoryAccess {
     }
 
     public static void putArrayElement(int arrayStartAddressOffset, int index, int value) {
-        int offset = arrayStartAddressOffset + index * Integer.BYTES;
+        int offset = arrayStartAddressOffset + index * REGISTER_SIZE;
         putInt(offset, value);
     }
 
@@ -66,7 +69,7 @@ public class MemoryAccess {
     }
 
     public static void printState() {
-        System.out.printf("allow uninitialized reads: %b%n", ALLOW_UNINITIALIZED_READS);
+        System.out.printf("allows uninitialized reads: %b%n", ALLOW_UNINITIALIZED_READS);
         System.out.printf("base address: 0x%x%n", BASE_ADDRESS);
         System.out.printf("written memory offsets: %s%n", writtenToMemory);
     }

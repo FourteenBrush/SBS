@@ -1,14 +1,7 @@
-               ; IntStream.range(1, 4).forEach(System.out::println);
+mov [0] 12
+mov [4] 2
 
-               @define max_ 4
-
-                    mov $ax 1 ; i
-               lp:  mov $cx max_
-                    sub $cx $ax ; max - i
-                    jnz $cx hlt
-                    ; loop body
-                    out $ax
-                    inc $ax ; i++
-                    pd
-                    jmp lp
-               hlt: hlt
+mov $cx 0
+mov $dx [$cx]
+out $dx
+hlt

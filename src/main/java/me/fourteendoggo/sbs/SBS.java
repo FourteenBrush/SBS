@@ -1,7 +1,7 @@
 package me.fourteendoggo.sbs;
 
 import me.fourteendoggo.sbs.instruction.Instruction;
-import me.fourteendoggo.sbs.instruction.OpCode;
+import me.fourteendoggo.sbs.instruction.Opcode;
 
 import java.util.Arrays;
 import java.util.List;
@@ -20,39 +20,39 @@ public class SBS {
     }
 
     @SuppressWarnings("ConstantConditions")
-    public void exec() {
+    public void run() {
         if (instructions.isEmpty()) return;
 
         Instruction instruction = null;
         while (pc < instructions.size()) {
             instruction = instructions.get(pc);
-            System.out.println(instruction);
 
             int oldIp = pc;
             instruction.execute(this);
             if (pc == oldIp) { // no jump
                 pc++;
             }
-            if (instruction.opCode() == OpCode.HLT) return;
+            if (instruction.opcode() == Opcode.HLT) return;
         }
-        if (instruction.opCode() != OpCode.HLT) {
-            throw panic("last instruction was not a HLT, executed it manually and exited");
+        if (instruction.opcode() != Opcode.HLT) {
+            panic("last instruction was not a HLT, executed it manually and exited");
         }
     }
 
-    public void setIp(int ip) {
+    public void jumpTo(int ip) {
         if (ip < 0 || ip >= instructions.size()) {
-            throw new IllegalArgumentException("ip must be between 0 and %s, got %s".formatted(instructions.size(), ip));
+            panic("ip must be between 0 and %s, got %s".formatted(instructions.size(), ip));
         }
         pc = ip;
     }
 
     public void halt(int status) {
+        MemoryAccess.free();
         System.exit(status);
     }
 
-    protected static RuntimeException panic(String message, Object... placeholders) {
+    protected static void panic(String message, Object... placeholders) {
         MemoryAccess.free();
-        return new IllegalStateException(message.formatted(placeholders));
+        throw new IllegalStateException(message.formatted(placeholders));
     }
 }

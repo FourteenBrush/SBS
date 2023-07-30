@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class RegisterHolder {
     private static final Map<String, Register> REGISTERS = new HashMap<>();
-    // TODO: registers now start at address offset 32, what about users overwriting this?
+    // TODO: registers now start at address offset x, what about users overwriting this?
     // could be solved with placing registers at a completely different place in memory, which is not user accessible
     private static final AtomicInteger OFFSET_INCREMENT = new AtomicInteger(32);
 

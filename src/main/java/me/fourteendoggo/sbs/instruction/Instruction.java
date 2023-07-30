@@ -7,10 +7,10 @@ import me.fourteendoggo.sbs.argument.address.Address;
 
 import java.util.Arrays;
 
-public record Instruction(OpCode opCode, Operand... operands) {
+public record Instruction(Opcode opcode, Operand... operands) {
 
     public void execute(SBS sbs) {
-        opCode.exec(sbs, this);
+        opcode.execute(sbs, this);
     }
 
     public Constant getConstant(int idx) {
@@ -32,8 +32,8 @@ public record Instruction(OpCode opCode, Operand... operands) {
 
     @Override
     public String toString() {
-        return "Instruction[opCode=%s, operands=%s]".formatted(
-                opCode, Arrays.toString(operands)
+        return "Instruction[opcode=%s, operands=%s]".formatted(
+                opcode, Arrays.toString(operands)
         );
     }
 }
