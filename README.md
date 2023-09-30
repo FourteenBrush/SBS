@@ -2,7 +2,8 @@
 Low level language, based on Java bytecode/ assembly, written in Java.  
 This project contains a parser and emulator to run the code.
 
-### VERY UNSTABLE AT THE MOMENT
+> [!WARNING]
+> Work in progress, use at your own risk.
 
 Example file: code.xf  
 Run with `java -jar thisjar.jar --input code.xf`
@@ -34,7 +35,8 @@ hlt: hlt
 A file starts with preprocessor directives (`@define foo bar`), similar to how C handles such directives.
 These will be replaced in the source code before parsing, e.g. every occurrence of `foo` will be replaced with `bar`.
 This can be useful to avoid magic values.  
-`Note:` more directives will probably come in the future.
+> [!NOTE]
+> More directives will come in future releases.
 
 Example:
 
@@ -54,7 +56,8 @@ mov bool_addr ON
 
 Every further line is either a marker or an instruction. A marker acts as *yes a marker* to some instruction behind it.
 This is useful for jumps, so you write something like `jmp my_marker` instead of magic values, markers will be preprocessed too.  
-`NOTE:` when writing a marker, the expression it points to must be on the same line, this will be solved in the future.
+> [!NOTE]
+> When writing a marker, the expression it points to must be on the same line, this will be resolved in a future release.
 
 Example marker:
 
@@ -106,8 +109,11 @@ mov $ax 12
 
 All operands are currently `32-bit`
 
+> [!NOTE]
+> Floating point numbers are not supported yet.
+
 Operands come in three forms:
-- immediate value (constant) e.g. `2` `Note:` floating point values are not yet supported
+- immediate value (constant) e.g. `2`
 - address e.g. `[124]`
 - register, e.g. `$ax`, currently from `ax` to `dx`, always preceded by `$`
 
